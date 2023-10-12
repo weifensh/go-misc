@@ -43,3 +43,37 @@ Notice the comment that says `// variable sized`, meaning that the size with whi
 We'll see later in this chapter that the compiler is responsible for allocating the memory that backs this array, and does so independently of the size indicated here. Likewise, the runtime always accesses this array using raw pointers, thus bounds-checking does not apply here.
 
 
+### The empty interface
+
+The datastructure for the empty interface is what you'd intuitively think it would be: an `iface` without an `itab`.  
+There are two reasons for that:
+1. Since the empty interface has no methods, everything related to dynamic dispatch can safely be dropped from the datastructure.
+1. With the virtual table gone, the type of the empty interface itself, not to be confused with the type of the data it holds, is always the same (i.e. we talk about *the* empty interface rather than *an* empty interface).
+
+*NOTE: Similar to the notation we used for `iface`, we'll denote the empty interface holding a type T as `eface<T>`*
+
+`eface` is the root type that represents the empty interface within the runtime ([src/runtime/runtime2.go](https://github.com/golang/go/blob/bf86aec25972f3a100c3aa58a6abcbcc35bdea49/src/runtime/runtime2.go#L148-L151)).  
+Its definition goes like this:
+```Go
+type eface struct { // 16 bytes on a 64bit arch
+    _type *_type
+    data  unsafe.Pointer
+}
+```
+Where `_type` holds the type information of the value pointed to by `data`.  
+As expected, the `itab` has been dropped entirely.
+
+While the empty interface could just reuse the `iface` datastructure (it is a superset of `eface` after all), the runtime chooses to distinguish the two for two main reasons: space efficiency and code clarity.
+
+
+
+
+### The Laws of Reflection
+#### Reflection goes from interface value to reflection object.
+- At the basic level, reflection is just a mechanism to examine the type and value pair stored inside an interface variable.
+- Use reflect.TypeOf and reflect.ValueOf, retrieve reflect.Type and reflect.Value pieces out of an interface value. 
+#### Reflection goes from reflection object to interface value.
+- Given a reflect.Value we can recover an interface value using the Interface method; in effect the method packs the type and value information back into an interface representation and returns the result:
+- Reflection goes from interface values to reflection objects and back again.
+#### To modify a reflection object, the value must be settable.
+- Just keep in mind that reflection Values need the address of something in order to modify what they represent.
